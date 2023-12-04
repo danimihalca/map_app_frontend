@@ -21,9 +21,34 @@ function App() {
       map.current = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-74.5, 40],
+        center: [23.590659, 46.770292],
         zoom: 9
       });
+
+      map.current.on('load', function () {
+        const request: RequestInfo = new Request('http://127.0.0.1:12345/search/places/kfc');
+
+        fetch(request)
+          .then(res => res.json())
+          .then(res => {
+            console.log(res);
+
+            map.current?.addSource("aaa", {
+              type: 'geojson',
+              data: res
+            });
+            map.current?.addLayer({
+              id: 'point',
+              source: 'aaa',
+              type: 'circle',
+              paint: {
+                'circle-radius': 10,
+                'circle-color': '#448ee4'
+              }
+            });
+          })
+      })
+
     }
 
   }, [mapContainerRef, isOpen]);

@@ -1,4 +1,4 @@
-import mapboxgl from 'mapbox-gl';
+import mapboxgl, { GeoJSONSource } from 'mapbox-gl';
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import './App.css';
@@ -51,31 +51,36 @@ function App() {
         res.features[i].properties.index = i + 1;
       }
 
-      map.current?.addSource("aaa", {
-        type: 'geojson',
-        data: res
-      });
-      map.current?.addLayer({
-        id: 'point',
-        source: 'aaa',
-        type: 'symbol',
-        layout: {
-          'text-field': ['get', 'index'],
-          'icon-image': 'border-dot-13',
-          'text-font': [
-            'Open Sans Bold',
-            'Arial Unicode MS Bold'
-          ],
-          'text-size': 15,
-          'text-transform': 'uppercase',
-          'text-letter-spacing': 0.05,
-          'text-offset': [0, 1.5],
+      if (map.current?.getSource("searchResultsSource")) {
+        (map.current.getSource("searchResultsSource") as GeoJSONSource).setData(res);
+      }
+      else {
+        map.current?.addSource("searchResultsSource", {
+          type: 'geojson',
+          data: res
+        });
+        map.current?.addLayer({
+          id: 'searchResultsLayer',
+          source: 'searchResultsSource',
+          type: 'symbol',
+          layout: {
+            'text-field': ['get', 'index'],
+            'icon-image': 'border-dot-13',
+            'text-font': [
+              'Open Sans Bold',
+              'Arial Unicode MS Bold'
+            ],
+            'text-size': 15,
+            'text-transform': 'uppercase',
+            'text-letter-spacing': 0.05,
+            'text-offset': [0, 1.5],
 
-        },
-        paint: {
-          'text-color': '#202'
-        }
-      });
+          },
+          paint: {
+            'text-color': '#202'
+          }
+        });
+      }
     };
 
     if (useCachedResults && localStorage['results']) {

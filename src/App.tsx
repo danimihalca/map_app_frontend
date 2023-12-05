@@ -28,25 +28,51 @@ function App() {
       map.current.on('load', function () {
         const request: RequestInfo = new Request('http://127.0.0.1:12345/search/places/kfc');
 
-        fetch(request)
-          .then(res => res.json())
-          .then(res => {
-            console.log(res);
+        const useCachedResults = false;
 
-            map.current?.addSource("aaa", {
-              type: 'geojson',
-              data: res
-            });
-            map.current?.addLayer({
-              id: 'point',
-              source: 'aaa',
-              type: 'circle',
-              paint: {
-                'circle-radius': 10,
-                'circle-color': '#448ee4'
-              }
-            });
-          })
+        var setResultsOnMap = (res: any) => {
+          for (var i = 0; i < res.features.length; ++i) {
+            res.features[i].properties.index = i + 1;
+          }
+
+          map.current?.addSource("aaa", {
+            type: 'geojson',
+            data: res
+          });
+          map.current?.addLayer({
+            id: 'point',
+            source: 'aaa',
+            type: 'symbol',
+            layout: {
+              'text-field': ['get', 'index'],
+              'icon-image': 'border-dot-13',
+              'text-font': [
+                'Open Sans Bold',
+                'Arial Unicode MS Bold'
+              ],
+              'text-size': 15,
+              'text-transform': 'uppercase',
+              'text-letter-spacing': 0.05,
+              'text-offset': [0, 1.5],
+
+            },
+            paint: {
+              'text-color': '#202'
+            }
+          });
+        };
+
+        if (useCachedResults && localStorage['results']) {
+          setResultsOnMap(JSON.parse(localStorage['results']))
+        }
+        else {
+          fetch(request)
+            .then(res => res.json())
+            .then(res => {
+              localStorage['results'] = JSON.stringify(res);
+              setResultsOnMap(res)
+            })
+        }
       })
 
     }

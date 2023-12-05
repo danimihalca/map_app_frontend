@@ -3,17 +3,28 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import './App.css';
 
-import React from 'react';
+import React, { ReactElement } from 'react';
 
 import Popup from 'reactjs-popup';
+
+import TextField from '@mui/material/TextField';
+
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import Divider from '@mui/material/Divider';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
 
 let apiToken: string;
 
 function App() {
-  const [isOpen, setIsOpen] = React.useState(true);
+  const [isOpen, setIsOpen] = React.useState(false);
   const mapContainerRef = React.useRef<any>(null);
   const map = React.useRef<mapboxgl.Map | null>(null);
   const tokenField = React.useRef<HTMLInputElement | null>(null);
+  const [searchText, setSearchText] = React.useState('');
+
+  let [searchResultsList, setSearchResultsList] = React.useState<ReactElement | null>(null);
 
   React.useEffect(() => {
     if (!map.current && !isOpen) {
@@ -24,60 +35,85 @@ function App() {
         center: [23.590659, 46.770292],
         zoom: 9
       });
-
-      map.current.on('load', function () {
-        const request: RequestInfo = new Request('http://127.0.0.1:12345/search/places/kfc');
-
-        const useCachedResults = false;
-
-        var setResultsOnMap = (res: any) => {
-          for (var i = 0; i < res.features.length; ++i) {
-            res.features[i].properties.index = i + 1;
-          }
-
-          map.current?.addSource("aaa", {
-            type: 'geojson',
-            data: res
-          });
-          map.current?.addLayer({
-            id: 'point',
-            source: 'aaa',
-            type: 'symbol',
-            layout: {
-              'text-field': ['get', 'index'],
-              'icon-image': 'border-dot-13',
-              'text-font': [
-                'Open Sans Bold',
-                'Arial Unicode MS Bold'
-              ],
-              'text-size': 15,
-              'text-transform': 'uppercase',
-              'text-letter-spacing': 0.05,
-              'text-offset': [0, 1.5],
-
-            },
-            paint: {
-              'text-color': '#202'
-            }
-          });
-        };
-
-        if (useCachedResults && localStorage['results']) {
-          setResultsOnMap(JSON.parse(localStorage['results']))
-        }
-        else {
-          fetch(request)
-            .then(res => res.json())
-            .then(res => {
-              localStorage['results'] = JSON.stringify(res);
-              setResultsOnMap(res)
-            })
-        }
-      })
-
     }
-
   }, [mapContainerRef, isOpen]);
+
+  React.useEffect(() => {
+    if (searchText === '') {
+      return;
+    }
+    const request: RequestInfo = new Request('http://127.0.0.1:12345/search/places/' + searchText);
+
+    const useCachedResults = false;
+
+    var setResultsOnMap = (res: any) => {
+      for (var i = 0; i < res.features.length; ++i) {
+        res.features[i].properties.index = i + 1;
+      }
+
+      map.current?.addSource("aaa", {
+        type: 'geojson',
+        data: res
+      });
+      map.current?.addLayer({
+        id: 'point',
+        source: 'aaa',
+        type: 'symbol',
+        layout: {
+          'text-field': ['get', 'index'],
+          'icon-image': 'border-dot-13',
+          'text-font': [
+            'Open Sans Bold',
+            'Arial Unicode MS Bold'
+          ],
+          'text-size': 15,
+          'text-transform': 'uppercase',
+          'text-letter-spacing': 0.05,
+          'text-offset': [0, 1.5],
+
+        },
+        paint: {
+          'text-color': '#202'
+        }
+      });
+    };
+
+    if (useCachedResults && localStorage['results']) {
+      setResultsOnMap(JSON.parse(localStorage['results']))
+    }
+    else {
+      fetch(request)
+        .then(res => res.json())
+        .then(res => {
+          localStorage['results'] = JSON.stringify(res);
+          setResultsOnMap(res)
+
+          let listItems = res.features.map((element: any) =>
+            <>
+              <ListItem alignItems="flex-start">
+                <ListItemAvatar>
+                  <ListItemText
+                    primary={element.properties.index.toString() + '.'}
+                  />
+                </ListItemAvatar>
+                <ListItemText
+                  primary={element.text}
+                  secondary={element.properties.address}
+                />
+              </ListItem>
+              <Divider />
+            </>
+          )
+
+          setSearchResultsList(<List sx={{ visibility: 'visible', width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
+            {listItems}
+          </List>)
+
+        })
+    }
+  }, [searchText]);
+
+
   return (
     <div>
       <Popup open={isOpen} modal closeOnDocumentClick={false}>
@@ -102,6 +138,27 @@ function App() {
         ))()}
       </Popup>
       <div className='map-container' ref={mapContainerRef} hidden={isOpen} />
+      <TextField
+        id="standard-search"
+        label="Search"
+        type="search"
+        variant="filled"
+        sx={{
+          input: {
+            color: "black",
+            background: "white"
+          }
+        }}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter") {
+            setSearchText((ev.target as HTMLTextAreaElement).value)
+            ev.preventDefault();
+          }
+        }}
+      />
+
+      {searchResultsList}
+
     </div>
   );
 }

@@ -5,7 +5,7 @@ WORKDIR /workspace
 
 COPY . . 
 
-RUN nmp install && npm run build --mode production
+RUN npm install && npm run build --mode production
 
 FROM nginx:stable-alpine as runner
 COPY --from=builder /workspace/build /usr/share/nginx/html

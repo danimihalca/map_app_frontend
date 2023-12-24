@@ -18,7 +18,7 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 let apiToken: string;
 
 function App() {
-  const [isOpen, setIsOpen] = React.useState(true);
+  const [askForAccessToken, setAskForAccessToken] = React.useState(true);
   const mapContainerRef = React.useRef<any>(null);
   const map = React.useRef<mapboxgl.Map | null>(null);
   const tokenField = React.useRef<HTMLInputElement | null>(null);
@@ -27,7 +27,7 @@ function App() {
   let [searchResultsList, setSearchResultsList] = React.useState<ReactElement | null>(null);
 
   React.useEffect(() => {
-    if (!map.current && !isOpen) {
+    if (!map.current && !askForAccessToken) {
       mapboxgl.accessToken = apiToken;
       map.current = new mapboxgl.Map({
         container: mapContainerRef.current,
@@ -36,7 +36,7 @@ function App() {
         zoom: 9
       });
     }
-  }, [mapContainerRef, isOpen]);
+  }, [mapContainerRef, askForAccessToken]);
 
   React.useEffect(() => {
     if (searchText === '') {
@@ -122,7 +122,7 @@ function App() {
 
   return (
     <div>
-      <Popup open={isOpen} modal closeOnDocumentClick={false}>
+      <Popup open={askForAccessToken} modal closeOnDocumentClick={false}>
         {(close => (
           <div className="modal">
             <div className="header"> Access Token </div>
@@ -134,7 +134,7 @@ function App() {
                 className="button"
                 onClick={() => {
                   apiToken = tokenField.current?.value || "";
-                  setIsOpen(false);
+                  setAskForAccessToken(false);
                 }}
               >
                 Enter
@@ -143,12 +143,13 @@ function App() {
           </div>
         ))()}
       </Popup>
-      <div className='map-container' ref={mapContainerRef} hidden={isOpen} />
+      <div className='map-container' ref={mapContainerRef} hidden={askForAccessToken} />
       <TextField
         id="standard-search"
         label="Search"
         type="search"
         variant="filled"
+        style={{ display: askForAccessToken ? 'none' : undefined }}
         sx={{
           input: {
             color: "black",

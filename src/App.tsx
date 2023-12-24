@@ -18,7 +18,7 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 let apiToken: string;
 
 function App() {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = React.useState(true);
   const mapContainerRef = React.useRef<any>(null);
   const map = React.useRef<mapboxgl.Map | null>(null);
   const tokenField = React.useRef<HTMLInputElement | null>(null);
@@ -42,7 +42,8 @@ function App() {
     if (searchText === '') {
       return;
     }
-    const request: RequestInfo = new Request('http://127.0.0.1:12345/search/places/' + searchText);
+
+    const request: RequestInfo = new Request(process.env.REACT_APP_SEARCH_API_ENDPOINT + '/search/places/' + searchText);
 
     const useCachedResults = false;
 

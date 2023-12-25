@@ -9,6 +9,7 @@ RUN npm install && npm run build --mode production
 
 FROM nginx:stable-alpine as runner
 COPY --from=builder /workspace/build /usr/share/nginx/html
+COPY default.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

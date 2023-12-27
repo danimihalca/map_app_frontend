@@ -35,6 +35,19 @@ jobs:
       - name: Push image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        if: github.ref_name == 'develop'
+        # if: github.ref_name == 'develop'
         run: |
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Install kubectl
+        if: ${{ vars.DEPLOY_ON_K8S }} == 'true'
+        uses: azure/setup-kubectl@v2.0
+
+      - name: Deploy to K8s
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        if: ${{ vars.DEPLOY_ON_K8S }} == 'true'
+        run: |
+          aws eks update-kubeconfig --name MapApp
+          cat app/k8s_service.tmp.yml | envsubst | kubectl apply -f -
+

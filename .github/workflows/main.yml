@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ECR_REPOSITORY: map-app-frontend
-      IMAGE_TAG: 76aebb1cc066a0403b4b4fe172a3f4a3c6393ecd
+      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Check out code
@@ -22,28 +22,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
-      # - name: Login to Amazon ECR
-      #   id: login-ecr
-      #   uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
 
-      # - name: Build and tag image
-      #   env:
-      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      #   run: |
-      #     docker build --target runner -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+      - name: Build and tag image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build --target runner -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
 
-      # - name: Push image to ECR
-      #   env:
-      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      #   # if: github.ref_name == 'develop'
-      #   run: |
-      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      # - name: Install kubectl
-      #   if: ${{ vars.DEPLOY_ON_K8S }} == 'true'
-      #   run: |
-      #     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      #     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl          
+      - name: Push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        # if: github.ref_name == 'develop'
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG     
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v2.0

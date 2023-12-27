@@ -49,5 +49,5 @@ jobs:
         if: ${{ vars.DEPLOY_ON_K8S }} == 'true'
         run: |
           aws eks update-kubeconfig --name MapApp
-          cat app/k8s_service.tmp.yml | envsubst | kubectl apply -f -
+          cat k8s_service.tmp.yml | envsubst | kubectl apply -f -
 

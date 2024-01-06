@@ -17,6 +17,7 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
+        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -25,19 +26,24 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
+        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
+
+      - name: "Set extra environment variables"
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          DEPLOY: ${{ vars.DEPLOY_ON_K8S }}
+        run: |
+          [ "$GITHUB_REF_NAME" == "develop" ] && [[ "$DEPLOY" == "true" ]] && IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" || IMAGE_NAME="dummy_image"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
       - name: Build and tag image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build --target runner -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build --target runner -t $IMAGE_NAME .
 
       - name: Push image to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        if: github.ref_name == 'develop'
+        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG     
+          docker push $IMAGE_NAME
 
       - name: Install kubectl
         if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
@@ -46,8 +52,6 @@ jobs:
           version: latest
 
       - name: Deploy to K8s
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
         run: |
           aws eks update-kubeconfig --name MapApp --region eu-central-1

@@ -127,7 +127,16 @@ function App() {
           <div className="modal">
             <div className="header"> Access Token </div>
             <div className="content">
-              <input name="myInput" ref={tokenField} />
+              <input
+                name="myInput"
+                ref={tokenField}
+                onKeyPress={(event) => {
+                  if (event.key == "Enter") {
+                    apiToken = tokenField.current?.value || "";
+                    setAskForAccessToken(false);
+                  }
+                }}
+              />
             </div>
             <div className="actions">
               <button

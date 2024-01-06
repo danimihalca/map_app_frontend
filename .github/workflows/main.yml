@@ -1,7 +1,32 @@
 name: Build Frontend
 
-on: push
-
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      checkout_source:
+          description: "Checkout source (branch/commit)"
+          required: true
+          default: "develop"
+          type: string
+      build_release_image:
+          description: "Build release image"
+          required: true
+          default: true
+          type: boolean
+      deploy_image_to_repository:
+        description: "Deploy image to repository (req. build release image)"
+        required: true
+        default: false
+        type: boolean
+      deploy_image_to_cluster:
+        description: "Deploy image to cluster (req. deploy/predeployed image to repository)"
+        required: true
+        default: false
+        type: boolean
 jobs:
   build:
     name: Build frontend
@@ -9,15 +34,38 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ECR_REPOSITORY: map-app-frontend
-      IMAGE_TAG: ${{ github.sha }}
 
     steps:
+      - name: "Set configuration environment variables"
+        env:
+          DEPLOY: ${{ (vars.DEPLOY_ON_K8S == 'true' && github.ref_name == 'develop' ) }}
+        run: |
+          if [[ $GITHUB_EVENT_NAME == 'workflow_dispatch' ]]; then
+            #TODO: allow only owner
+            export CONFIG_CHECKOUT_SOURCE=${{ inputs.checkout_source }}
+            export CONFIG_BUILD_RELEASE_IMAGE=${{ inputs.build_release_image }}
+            export CONFIG_DEPLOY_TO_REPOSITORY=${{ inputs.deploy_image_to_repository }}
+            export CONFIG_DEPLOY_TO_CLUSTER=${{ inputs.deploy_image_to_cluster }}
+          else
+            export CONFIG_CHECKOUT_SOURCE=$GITHUB_SHA
+            export CONFIG_BUILD_RELEASE_IMAGE=true
+            export CONFIG_DEPLOY_TO_REPOSITORY=$DEPLOY
+            export CONFIG_DEPLOY_TO_CLUSTER=$DEPLOY
+          fi
+
+          echo "CONFIG_CHECKOUT_SOURCE=$CONFIG_CHECKOUT_SOURCE" >> $GITHUB_ENV
+          echo "CONFIG_BUILD_RELEASE_IMAGE=$CONFIG_BUILD_RELEASE_IMAGE" >> $GITHUB_ENV
+          echo "CONFIG_DEPLOY_TO_REPOSITORY=$CONFIG_DEPLOY_TO_REPOSITORY" >> $GITHUB_ENV
+          echo "CONFIG_DEPLOY_TO_CLUSTER=$CONFIG_DEPLOY_TO_CLUSTER" >> $GITHUB_ENV
+
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CONFIG_CHECKOUT_SOURCE }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
-        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
+        if: ${{ env.CONFIG_DEPLOY_TO_REPOSITORY == 'true' || env.CONFIG_DEPLOY_TO_CLUSTER == 'true' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -26,33 +74,34 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
-        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
+        if: ${{ env.CONFIG_DEPLOY_TO_REPOSITORY == 'true' || env.CONFIG_DEPLOY_TO_CLUSTER == 'true' }}
 
-      - name: "Set extra environment variables"
+      - name: "Set release image name"
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          DEPLOY: ${{ vars.DEPLOY_ON_K8S }}
         run: |
-          [ "$GITHUB_REF_NAME" == "develop" ] && [[ "$DEPLOY" == "true" ]] && IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" || IMAGE_NAME="dummy_image"
+          IMAGE_TAG=`git log -1 '--format=format:%H'`
+          [ "$CONFIG_DEPLOY_TO_REPOSITORY" == "true" ] || [ "$CONFIG_DEPLOY_TO_CLUSTER" == "true" ] && IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" || IMAGE_NAME="dummy_image:$IMAGE_TAG"
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
-      - name: Build and tag image
+      - name: Build release image
+        if: ${{ env.CONFIG_BUILD_RELEASE_IMAGE == 'true' }}
         run: |
           docker build --target runner -t $IMAGE_NAME .
 
       - name: Push image to ECR
-        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
+        if: ${{ env.CONFIG_DEPLOY_TO_REPOSITORY == 'true' }}
         run: |
           docker push $IMAGE_NAME
 
       - name: Install kubectl
-        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
+        if: ${{ env.CONFIG_DEPLOY_TO_CLUSTER == 'true' }}
         uses: azure/setup-kubectl@v2.0
         with:
           version: latest
 
       - name: Deploy to K8s
-        if: ${{ github.ref_name == 'develop' && vars.DEPLOY_ON_K8S  == 'true' }}
+        if: ${{ env.CONFIG_DEPLOY_TO_CLUSTER == 'true' }}
         run: |
           aws eks update-kubeconfig --name MapApp --region eu-central-1
 

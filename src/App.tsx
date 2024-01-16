@@ -14,6 +14,7 @@ import ListItem from '@mui/material/ListItem';
 import Divider from '@mui/material/Divider';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
+import Button from '@mui/material/Button';
 
 let apiToken: string;
 
@@ -23,6 +24,7 @@ function App() {
   const map = React.useRef<mapboxgl.Map | null>(null);
   const tokenField = React.useRef<HTMLInputElement | null>(null);
   const [searchText, setSearchText] = React.useState('');
+  const [origin, setOrigin] = React.useState('');
 
   let [searchResultsList, setSearchResultsList] = React.useState<ReactElement | null>(null);
 
@@ -37,6 +39,68 @@ function App() {
       });
     }
   }, [mapContainerRef, askForAccessToken]);
+
+  React.useEffect(() => {
+    if (!map.current) {
+      return;
+    }
+
+    if (origin === '') {
+      return;
+    }
+    let coordArray = origin.split(',');
+
+    const geojson = {
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [parseFloat(coordArray[1]), parseFloat(coordArray[0])]
+          },
+          properties: {
+            title: 'ORIGIN',
+            iii: '📍'
+          }
+        }
+      ]
+    };
+    console.log(geojson)
+
+    if (map.current?.getSource("origin")) {
+      (map.current.getSource("origin") as GeoJSONSource).setData(geojson);
+    }
+    else {
+      map.current?.addSource("origin", {
+        type: 'geojson',
+        data: geojson
+      });
+      map.current?.addLayer({
+        id: 'originLayer',
+        source: 'origin',
+        type: 'symbol',
+        layout: {
+          'text-field': ['get', 'title'],
+          'icon-image': '{iii}-13',
+          'text-font': [
+            'Open Sans Bold',
+            'Arial Unicode MS Bold'
+          ],
+          'text-size': 15,
+          'text-transform': 'uppercase',
+          'text-letter-spacing': 0.05,
+          'text-offset': [0, 1.5],
+
+        },
+        paint: {
+          'text-color': '#202'
+        }
+      });
+    }
+    
+
+  }, [origin]);
 
   React.useEffect(() => {
     if (searchText === '') {
@@ -174,6 +238,44 @@ function App() {
       />
 
       {searchResultsList}
+
+      <Button variant="contained" color='inherit'
+      onClick={() => {
+        const successCallback = (position:any) => {
+          console.log(position);
+          let prettyLocation = position.coords.latitude.toString() +','+position.coords.longitude.toString();
+          setOrigin(prettyLocation);
+        };
+        
+        const errorCallback = (error:any) => {
+          console.log(error);
+        };
+        
+        navigator.geolocation.getCurrentPosition(successCallback, errorCallback);
+        
+      }}
+      >📍</Button>
+      <TextField
+        id="location_input"
+        label="Location"
+        type="text"
+        variant="filled"
+        value={origin}
+        // style={{ display: askForAccessToken ? 'none' : undefined }}
+        sx={{
+          input: {
+            color: "black",
+            background: "white"
+          }
+        }}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter") {
+            //TODO: set location
+            ev.preventDefault();
+          }
+        }}
+      />
+
 
     </div>
   );

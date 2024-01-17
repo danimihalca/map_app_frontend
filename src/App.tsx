@@ -107,6 +107,58 @@ function App() {
 
   }, [origin, updateOriginOnMap]);
 
+
+  let calculateRoute = (destination:any) => {
+    if (origin === '') {
+      console.warn("No origin location set.");
+      return;
+    }
+
+    let coordinates = origin + ';' + destination.geometry.coordinates[0] + ',' + destination.geometry.coordinates[1]
+
+    let url = process.env.REACT_APP_NAVIGATION_API_ENDPOINT  + '/directions/coordinates=' + coordinates;
+
+    const request: RequestInfo = new Request(url);
+
+    fetch(request)
+      .then(res => res.json())
+      .then(res => {
+        const data = res.routes[0];
+        const route = data.geometry.coordinates;
+        const geojson = {
+          type: 'Feature' as const,
+          properties: {},
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: route
+          }
+        };
+
+        if (map.current?.getSource('route')) {
+          (map.current.getSource('route') as GeoJSONSource).setData(geojson);
+        }
+        else {
+          map.current?.addLayer({
+            id: 'route',
+            type: 'line',
+            source: {
+              type: 'geojson',
+              data: geojson
+            },
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#3887be',
+              'line-width': 5,
+              'line-opacity': 0.75
+            }
+          });
+        }
+      });
+  };
+
   React.useEffect(() => {
     if (searchText === '') {
       return;
@@ -171,7 +223,12 @@ function App() {
 
           let listItems = res.features.map((element: any) =>
             <>
-              <ListItem alignItems="flex-start">
+              <ListItem
+                alignItems="flex-start"
+                onClick={ () => {
+                  calculateRoute(element);
+                }}
+                >
                 <ListItemAvatar>
                   <ListItemText
                     primary={element.properties.index.toString() + '.'}

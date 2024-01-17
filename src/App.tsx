@@ -25,6 +25,7 @@ function App() {
   const tokenField = React.useRef<HTMLInputElement | null>(null);
   const [searchText, setSearchText] = React.useState('');
   const [origin, setOrigin] = React.useState('');
+  const [updateOriginOnMap, setUpdateOriginOnMap] = React.useState(false);
 
   let [searchResultsList, setSearchResultsList] = React.useState<ReactElement | null>(null);
 
@@ -40,7 +41,12 @@ function App() {
     }
   }, [mapContainerRef, askForAccessToken]);
 
+
   React.useEffect(() => {
+    if (!updateOriginOnMap) {
+      return;
+    }
+
     if (!map.current) {
       return;
     }
@@ -66,7 +72,6 @@ function App() {
         }
       ]
     };
-    console.log(geojson)
 
     if (map.current?.getSource("origin")) {
       (map.current.getSource("origin") as GeoJSONSource).setData(geojson);
@@ -98,9 +103,9 @@ function App() {
         }
       });
     }
-    
+    setUpdateOriginOnMap(false);
 
-  }, [origin]);
+  }, [origin, updateOriginOnMap]);
 
   React.useEffect(() => {
     if (searchText === '') {
@@ -242,9 +247,9 @@ function App() {
       <Button variant="contained" color='inherit'
       onClick={() => {
         const successCallback = (position:any) => {
-          console.log(position);
           let prettyLocation = position.coords.latitude.toString() +','+position.coords.longitude.toString();
           setOrigin(prettyLocation);
+          setUpdateOriginOnMap(true);
         };
         
         const errorCallback = (error:any) => {
@@ -261,7 +266,9 @@ function App() {
         type="text"
         variant="filled"
         value={origin}
-        // style={{ display: askForAccessToken ? 'none' : undefined }}
+        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+          setOrigin(event.target.value)
+        }}
         sx={{
           input: {
             color: "black",
@@ -270,7 +277,7 @@ function App() {
         }}
         onKeyDown={(ev) => {
           if (ev.key === "Enter") {
-            //TODO: set location
+            setUpdateOriginOnMap(true);
             ev.preventDefault();
           }
         }}

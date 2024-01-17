@@ -63,7 +63,7 @@ function App() {
           type: 'Feature' as const,
           geometry: {
             type: 'Point' as const,
-            coordinates: [parseFloat(coordArray[1]), parseFloat(coordArray[0])]
+            coordinates: [parseFloat(coordArray[0]), parseFloat(coordArray[1])]
           },
           properties: {
             title: 'ORIGIN',
@@ -112,7 +112,13 @@ function App() {
       return;
     }
 
-    const request: RequestInfo = new Request(process.env.REACT_APP_SEARCH_API_ENDPOINT + '/search/places/' + searchText);
+    let url = process.env.REACT_APP_SEARCH_API_ENDPOINT + '/search/places/' + searchText;
+
+    if (origin !== '') {
+      url += '?proximity=' + origin;
+    }
+
+    const request: RequestInfo = new Request(url);
 
     const useCachedResults = false;
 
@@ -250,7 +256,7 @@ function App() {
         style={{ display: askForAccessToken ? 'none' : undefined }}
         onClick={() => {
           const successCallback = (position:any) => {
-            let prettyLocation = position.coords.latitude.toString() +','+position.coords.longitude.toString();
+            let prettyLocation = position.coords.longitude.toString() +','+position.coords.latitude.toString();
             setOrigin(prettyLocation);
             setUpdateOriginOnMap(true);
           };

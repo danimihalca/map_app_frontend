@@ -244,27 +244,31 @@ function App() {
 
       {searchResultsList}
 
-      <Button variant="contained" color='inherit'
-      onClick={() => {
-        const successCallback = (position:any) => {
-          let prettyLocation = position.coords.latitude.toString() +','+position.coords.longitude.toString();
-          setOrigin(prettyLocation);
-          setUpdateOriginOnMap(true);
-        };
-        
-        const errorCallback = (error:any) => {
-          console.log(error);
-        };
-        
-        navigator.geolocation.getCurrentPosition(successCallback, errorCallback);
-        
-      }}
+      <Button 
+        variant="contained"
+        color='inherit'
+        style={{ display: askForAccessToken ? 'none' : undefined }}
+        onClick={() => {
+          const successCallback = (position:any) => {
+            let prettyLocation = position.coords.latitude.toString() +','+position.coords.longitude.toString();
+            setOrigin(prettyLocation);
+            setUpdateOriginOnMap(true);
+          };
+          
+          const errorCallback = (error:any) => {
+            console.log(error);
+          };
+          
+          navigator.geolocation.getCurrentPosition(successCallback, errorCallback);
+          
+        }}
       >📍</Button>
       <TextField
         id="location_input"
         label="Location"
         type="text"
         variant="filled"
+        style={{ display: askForAccessToken ? 'none' : undefined }}
         value={origin}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           setOrigin(event.target.value)

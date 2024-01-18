@@ -15,6 +15,7 @@ import Divider from '@mui/material/Divider';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
 
 let apiToken: string;
 
@@ -29,6 +30,10 @@ function App() {
 
   let [searchResultsList, setSearchResultsList] = React.useState<ReactElement | null>(null);
 
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [showSearchClear, setShowSearchClear] = React.useState<boolean>(false);
+
+
   React.useEffect(() => {
     if (!map.current && !askForAccessToken) {
       mapboxgl.accessToken = apiToken;
@@ -38,6 +43,36 @@ function App() {
         center: [23.590659, 46.770292],
         zoom: 9
       });
+
+      let startHoldMs = 0;
+      let dragged = false;
+
+      let startFetchLocation = () => {
+        dragged = false;
+        startHoldMs = Date.now();
+      };
+
+      let endFetchLocation = (e: mapboxgl.MapTouchEvent | mapboxgl.MapMouseEvent & mapboxgl.EventData) => {
+        let endHoldMs = Date.now();
+        if ((!dragged) && ((endHoldMs - startHoldMs) > 1000)) {
+
+          let prettyLocation = e.lngLat.lng.toFixed(5) + ',' + e.lngLat.lat.toFixed(5);
+          setOrigin(prettyLocation);
+          setUpdateOriginOnMap(true);
+        }
+      };
+
+      let abandonFetchLocation = () => { dragged = true; };
+
+      map.current?.on('mousedown', startFetchLocation);
+      map.current?.on('touchstart', startFetchLocation);
+
+      map.current?.on('mouseup', endFetchLocation);
+      map.current?.on('touchend', endFetchLocation);
+
+      map.current?.on('drag', abandonFetchLocation);
+      map.current?.on('touchmove', abandonFetchLocation);
+
     }
   }, [mapContainerRef, askForAccessToken]);
 
@@ -108,7 +143,7 @@ function App() {
   }, [origin, updateOriginOnMap]);
 
 
-  let calculateRoute = (destination:any) => {
+  let calculateRoute = (destination: any) => {
     if (origin === '') {
       console.warn("No origin location set.");
       return;
@@ -116,7 +151,7 @@ function App() {
 
     let coordinates = origin + ';' + destination.geometry.coordinates[0] + ',' + destination.geometry.coordinates[1]
 
-    let url = process.env.REACT_APP_NAVIGATION_API_ENDPOINT  + '/directions/coordinates=' + coordinates;
+    let url = process.env.REACT_APP_NAVIGATION_API_ENDPOINT + '/directions/coordinates=' + coordinates;
 
     const request: RequestInfo = new Request(url);
 
@@ -159,6 +194,55 @@ function App() {
       });
   };
 
+  var clearResultsOnMap = () => {
+    if (map.current?.getSource("searchResultsSource")) {
+      map.current?.removeLayer("searchResultsLayer");
+      map.current?.removeSource("searchResultsSource");
+    }
+
+    if (map.current?.getSource("route")) {
+      map.current?.removeLayer("route");
+      map.current?.removeSource("route");
+    }
+  }
+
+  var setResultsOnMap = (res: any) => {
+    for (var i = 0; i < res.features.length; ++i) {
+      res.features[i].properties.index = i + 1;
+    }
+
+    if (map.current?.getSource("searchResultsSource")) {
+      (map.current.getSource("searchResultsSource") as GeoJSONSource).setData(res);
+    }
+    else {
+      map.current?.addSource("searchResultsSource", {
+        type: 'geojson',
+        data: res
+      });
+      map.current?.addLayer({
+        id: 'searchResultsLayer',
+        source: 'searchResultsSource',
+        type: 'symbol',
+        layout: {
+          'text-field': ['get', 'index'],
+          'icon-image': 'border-dot-13',
+          'text-font': [
+            'Open Sans Bold',
+            'Arial Unicode MS Bold'
+          ],
+          'text-size': 15,
+          'text-transform': 'uppercase',
+          'text-letter-spacing': 0.05,
+          'text-offset': [0, 1.5],
+
+        },
+        paint: {
+          'text-color': '#202'
+        }
+      });
+    }
+  };
+
   React.useEffect(() => {
     if (searchText === '') {
       return;
@@ -174,42 +258,7 @@ function App() {
 
     const useCachedResults = false;
 
-    var setResultsOnMap = (res: any) => {
-      for (var i = 0; i < res.features.length; ++i) {
-        res.features[i].properties.index = i + 1;
-      }
 
-      if (map.current?.getSource("searchResultsSource")) {
-        (map.current.getSource("searchResultsSource") as GeoJSONSource).setData(res);
-      }
-      else {
-        map.current?.addSource("searchResultsSource", {
-          type: 'geojson',
-          data: res
-        });
-        map.current?.addLayer({
-          id: 'searchResultsLayer',
-          source: 'searchResultsSource',
-          type: 'symbol',
-          layout: {
-            'text-field': ['get', 'index'],
-            'icon-image': 'border-dot-13',
-            'text-font': [
-              'Open Sans Bold',
-              'Arial Unicode MS Bold'
-            ],
-            'text-size': 15,
-            'text-transform': 'uppercase',
-            'text-letter-spacing': 0.05,
-            'text-offset': [0, 1.5],
-
-          },
-          paint: {
-            'text-color': '#202'
-          }
-        });
-      }
-    };
 
     if (useCachedResults && localStorage['results']) {
       setResultsOnMap(JSON.parse(localStorage['results']))
@@ -225,10 +274,10 @@ function App() {
             <>
               <ListItem
                 alignItems="flex-start"
-                onClick={ () => {
+                onClick={() => {
                   calculateRoute(element);
                 }}
-                >
+              >
                 <ListItemAvatar>
                   <ListItemText
                     primary={element.properties.index.toString() + '.'}
@@ -243,14 +292,23 @@ function App() {
             </>
           )
 
-          setSearchResultsList(<List sx={{ visibility: 'visible', width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
-            {listItems}
-          </List>)
+          if (res.features.length > 0) {
+            setShowSearchClear(true);
+          }
+
+          setSearchResultsList(
+            <Paper style={{ maxHeight: '250px', maxWidth: '220px', overflow: 'auto' }}>
+              <List
+                sx={{ visibility: 'visible', width: '100%', maxWidth: '220px', bgcolor: 'background.paper' }}>
+                {listItems}
+              </List>
+
+            </Paper>
+          )
 
         })
     }
   }, [searchText]);
-
 
   return (
     <div>
@@ -285,70 +343,97 @@ function App() {
         ))()}
       </Popup>
       <div className='map-container' ref={mapContainerRef} hidden={askForAccessToken} />
-      <TextField
-        id="standard-search"
-        label="Search"
-        type="search"
-        variant="filled"
-        style={{ display: askForAccessToken ? 'none' : undefined }}
-        sx={{
-          input: {
-            color: "black",
-            background: "white"
-          }
-        }}
-        onKeyDown={(ev) => {
-          if (ev.key === "Enter") {
-            setSearchText((ev.target as HTMLTextAreaElement).value)
-            ev.preventDefault();
-          }
-        }}
-      />
+      <div >
+        <TextField
+          id="standard-search"
+          label="Search"
+          type="search"
+          variant="filled"
+          inputRef={searchInputRef}
+          style={{ display: askForAccessToken ? 'none' : undefined, width: '155px' }}
+          sx={{
+            input: {
+              color: "black",
+              background: "white"
+            }
+          }}
+          onKeyDown={(ev) => {
+            if (ev.key === "Enter") {
+              setSearchText((ev.target as HTMLTextAreaElement).value)
+              ev.preventDefault();
+            }
+          }}
+        />
+        <Button
+          variant="contained"
+          color='inherit'
+          style={{ display: showSearchClear ? undefined : 'none', height: '55px' }}
+          onClick={() => {
+            setSearchResultsList(null);
+            clearResultsOnMap();
+
+            if (searchInputRef.current) {
+              searchInputRef.current.value = "";
+            }
+            setShowSearchClear(false);
+
+          }}
+        >❌</Button>
+      </div>
+
 
       {searchResultsList}
 
-      <Button 
+      <Button
         variant="contained"
         color='inherit'
-        style={{ display: askForAccessToken ? 'none' : undefined }}
+        style={{
+          display: askForAccessToken ? 'none' : undefined, height: '55px',
+          position: 'absolute', top: '0%', right: '0%', transform: "translate(0, 0)"
+        }}
         onClick={() => {
-          const successCallback = (position:any) => {
-            let prettyLocation = position.coords.longitude.toString() +','+position.coords.latitude.toString();
+          const successCallback = (position: any) => {
+            let prettyLocation = position.coords.longitude.toFixed(5) + ',' + position.coords.latitude.toFixed(5);
             setOrigin(prettyLocation);
             setUpdateOriginOnMap(true);
           };
-          
-          const errorCallback = (error:any) => {
+
+          const errorCallback = (error: any) => {
             console.log(error);
           };
-          
+
           navigator.geolocation.getCurrentPosition(successCallback, errorCallback);
-          
+
         }}
       >📍</Button>
-      <TextField
-        id="location_input"
-        label="Location"
-        type="text"
-        variant="filled"
-        style={{ display: askForAccessToken ? 'none' : undefined }}
-        value={origin}
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-          setOrigin(event.target.value)
-        }}
-        sx={{
-          input: {
-            color: "black",
-            background: "white"
-          }
-        }}
-        onKeyDown={(ev) => {
-          if (ev.key === "Enter") {
-            setUpdateOriginOnMap(true);
-            ev.preventDefault();
-          }
-        }}
-      />
+
+      <div
+        style={{ position: 'absolute', bottom: '0%', left: '50%', transform: "translate(-50%, 0)" }}
+      >
+        <TextField
+          id="location_input"
+          label="Location <lng,lat>"
+          type="text"
+          variant="filled"
+          style={{ display: askForAccessToken ? 'none' : undefined, width: "200px" }}
+          value={origin}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+            setOrigin(event.target.value)
+          }}
+          sx={{
+            input: {
+              color: "black",
+              background: "white"
+            }
+          }}
+          onKeyDown={(ev) => {
+            if (ev.key === "Enter") {
+              setUpdateOriginOnMap(true);
+              ev.preventDefault();
+            }
+          }}
+        />
+      </div>
 
 
     </div>

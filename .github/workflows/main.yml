@@ -127,18 +127,24 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy to K8s
+      - name: Set AWS cluster configuration 
         if: ${{ env.CONFIG_DEPLOY_TO_CLUSTER == 'true' && env.CONFIG_TARGET_CLOUD == 'AWS' }}
         run: |
-          echo "Deploying image: $IMAGE_NAME"
           aws eks update-kubeconfig --name MapApp --region eu-central-1
 
-          cat k8s_service.tmp.yml | envsubst > k8s_service.yml
+      - name: Set Azure cluster configuration 
+        if: ${{ env.CONFIG_DEPLOY_TO_CLUSTER == 'true' && env.CONFIG_TARGET_CLOUD == 'Azure' }}
+        run: |
+          az aks get-credentials --resource-group rg_MapApp --name MapAppAks
 
-          kubectl apply -f k8s_service.yml
+      - name: Deploy to K8s
+        if: ${{ env.CONFIG_DEPLOY_TO_CLUSTER == 'true' }}
+        run: |
+          echo "Deploying image: $IMAGE_NAME"
 
-          # TODO: separate step, above part AWS specific, below common (plus Azure configuration TBD)
-          URL=`kubectl get svc/frontend-service --output jsonpath='{.status.loadBalancer.ingress[0].hostname}'`
+          [ "$CONFIG_TARGET_CLOUD" == "AWS" ] && URL_FIELD="hostname" || URL_FIELD="ip"
+
+          URL=`kubectl get svc/frontend-service --output jsonpath='{.status.loadBalancer.ingress[0].$URL_FIELD}'`
           while [ -z "$URL" ]
           do 
               echo "Waiting for url..."

@@ -142,6 +142,9 @@ jobs:
         run: |
           echo "Deploying image: $IMAGE_NAME"
 
+          cat k8s_service.tmp.yml | envsubst > k8s_service.yml
+          kubectl apply -f k8s_service.yml
+
           [ "$CONFIG_TARGET_CLOUD" == "AWS" ] && URL_FIELD="hostname" || URL_FIELD="ip"
 
           URL=`kubectl get svc/frontend-service --output jsonpath='{.status.loadBalancer.ingress[0].$URL_FIELD}'`

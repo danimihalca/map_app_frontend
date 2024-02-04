@@ -145,9 +145,9 @@ jobs:
           cat k8s_service.tmp.yml | envsubst > k8s_service.yml
           kubectl apply -f k8s_service.yml
 
-          [ "$CONFIG_TARGET_CLOUD" == "AWS" ] && URL_FIELD="hostname" || URL_FIELD="ip"
+          [ "$CONFIG_TARGET_CLOUD" == "AWS" ] && URL_PATH='{.status.loadBalancer.ingress[0].hostname}' || URL_PATH='{.status.loadBalancer.ingress[0].ip}'
 
-          URL=`kubectl get svc/frontend-service --output jsonpath='{.status.loadBalancer.ingress[0].$URL_FIELD}'`
+          URL=`kubectl get svc/frontend-service --output jsonpath=$URL_PATH`
           while [ -z "$URL" ]
           do 
               echo "Waiting for url..."

@@ -152,7 +152,7 @@ jobs:
           do 
               echo "Waiting for url..."
               sleep 10s
-              URL=`kubectl get svc/frontend-service --output jsonpath='{.status.loadBalancer.ingress[0].hostname}'`
+              URL=`kubectl get svc/frontend-service --output jsonpath=$URL_PATH`
           done 
 
           echo "Frontend URL: $URL"
